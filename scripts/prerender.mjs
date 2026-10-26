@@ -1,0 +1,9 @@
+import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {render,pages,siteUrl} from '../.ssr/entry-server.js';
+if(siteUrl){const u=new URL(siteUrl);if(!['https:','http:'].includes(u.protocol)||u.pathname!=='/'||u.search||u.hash)throw new Error('VITE_SITE_URL must be an HTTP(S) origin');}
+const escape=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const template=await readFile('dist/index.html','utf8');
+for(const page of [...pages,{path:'/404',title:'Page not found | Tradex',description:'The requested page could not be found.'}]){const url=siteUrl+page.path;const head=`<title>${escape(page.title)}</title><meta name="description" content="${escape(page.description)}"><meta property="og:title" content="${escape(page.title)}"><meta property="og:description" content="${escape(page.description)}"><meta property="og:type" content="website"><meta property="og:site_name" content="Tradex"><meta property="og:url" content="${siteUrl?escape(url):''}"><meta name="twitter:card" content="summary_large_image">${siteUrl?`<link rel="canonical" href="${escape(url)}"><meta property="og:image" content="${escape(siteUrl)}/social.svg">`:''}${!siteUrl||page.path==='/404'?'<meta name="robots" content="noindex">':''}`;const dir=page.path==='/'?'dist':`dist${page.path}`;await mkdir(dir,{recursive:true});await writeFile(`${dir}/index.html`,template.replace('<!--head-->',head).replace('<!--app-->',render(page.path)));}
+await writeFile('dist/sitemap.xml',`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${siteUrl?pages.map(p=>`<url><loc>${escape(siteUrl+p.path)}</loc></url>`).join(''):''}</urlset>`);
+await writeFile('dist/robots.txt',siteUrl?`User-agent: *\nAllow: /\nSitemap: ${siteUrl}/sitemap.xml\n`:'User-agent: *\nDisallow: /\n');
+if(!siteUrl)console.warn('VITE_SITE_URL is unset: indexing disabled; configure the final domain and rebuild before publication.');
